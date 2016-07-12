@@ -17,8 +17,51 @@
 
 package com.gemstone.gemfire.internal.cache.tier.sockets;
 
-import com.gemstone.gemfire.*;
-import com.gemstone.gemfire.cache.*;
+import static com.gemstone.gemfire.distributed.ConfigurationProperties.*;
+
+import java.io.BufferedOutputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.security.Principal;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.shiro.subject.Subject;
+
+import com.gemstone.gemfire.CancelException;
+import com.gemstone.gemfire.DataSerializer;
+import com.gemstone.gemfire.Instantiator;
+import com.gemstone.gemfire.InternalGemFireError;
+import com.gemstone.gemfire.StatisticsFactory;
+import com.gemstone.gemfire.cache.Cache;
+import com.gemstone.gemfire.cache.CacheEvent;
+import com.gemstone.gemfire.cache.CacheException;
+import com.gemstone.gemfire.cache.InterestRegistrationEvent;
+import com.gemstone.gemfire.cache.InterestRegistrationListener;
+import com.gemstone.gemfire.cache.Region;
+import com.gemstone.gemfire.cache.RegionDestroyedException;
+import com.gemstone.gemfire.cache.RegionExistsException;
+import com.gemstone.gemfire.cache.UnsupportedVersionException;
 import com.gemstone.gemfire.cache.client.internal.PoolImpl;
 import com.gemstone.gemfire.cache.client.internal.PoolImpl.PoolTask;
 import com.gemstone.gemfire.cache.query.CqException;
@@ -29,11 +72,45 @@ import com.gemstone.gemfire.cache.query.internal.cq.ServerCQ;
 import com.gemstone.gemfire.cache.server.CacheServer;
 import com.gemstone.gemfire.distributed.DistributedMember;
 import com.gemstone.gemfire.distributed.DistributedSystem;
-import com.gemstone.gemfire.distributed.internal.*;
-import com.gemstone.gemfire.internal.*;
-import com.gemstone.gemfire.internal.cache.*;
+import com.gemstone.gemfire.distributed.internal.DM;
+import com.gemstone.gemfire.distributed.internal.DistributionConfig;
+import com.gemstone.gemfire.distributed.internal.DistributionManager;
+import com.gemstone.gemfire.distributed.internal.HighPriorityDistributionMessage;
+import com.gemstone.gemfire.distributed.internal.InternalDistributedSystem;
+import com.gemstone.gemfire.distributed.internal.MessageWithReply;
+import com.gemstone.gemfire.distributed.internal.ReplyMessage;
+import com.gemstone.gemfire.distributed.internal.ReplyProcessor21;
+import com.gemstone.gemfire.internal.ClassLoadUtil;
+import com.gemstone.gemfire.internal.DummyStatisticsFactory;
+import com.gemstone.gemfire.internal.InternalDataSerializer;
+import com.gemstone.gemfire.internal.InternalInstantiator;
+import com.gemstone.gemfire.internal.SocketCloser;
+import com.gemstone.gemfire.internal.SystemTimer;
+import com.gemstone.gemfire.internal.Version;
+import com.gemstone.gemfire.internal.VersionedDataInputStream;
+import com.gemstone.gemfire.internal.VersionedDataOutputStream;
+import com.gemstone.gemfire.internal.cache.CacheClientStatus;
+import com.gemstone.gemfire.internal.cache.CacheDistributionAdvisor;
+import com.gemstone.gemfire.internal.cache.CacheServerImpl;
+import com.gemstone.gemfire.internal.cache.ClientRegionEventImpl;
+import com.gemstone.gemfire.internal.cache.ClientServerObserver;
+import com.gemstone.gemfire.internal.cache.ClientServerObserverHolder;
+import com.gemstone.gemfire.internal.cache.Conflatable;
+import com.gemstone.gemfire.internal.cache.DistributedRegion;
+import com.gemstone.gemfire.internal.cache.EntryEventImpl;
+import com.gemstone.gemfire.internal.cache.EnumListenerEvent;
+import com.gemstone.gemfire.internal.cache.EventID;
+import com.gemstone.gemfire.internal.cache.FilterProfile;
 import com.gemstone.gemfire.internal.cache.FilterRoutingInfo.FilterInfo;
-import com.gemstone.gemfire.internal.cache.ha.*;
+import com.gemstone.gemfire.internal.cache.GemFireCacheImpl;
+import com.gemstone.gemfire.internal.cache.InternalCacheEvent;
+import com.gemstone.gemfire.internal.cache.LocalRegion;
+import com.gemstone.gemfire.internal.cache.RegionEventImpl;
+import com.gemstone.gemfire.internal.cache.ha.HAContainerMap;
+import com.gemstone.gemfire.internal.cache.ha.HAContainerRegion;
+import com.gemstone.gemfire.internal.cache.ha.HAContainerWrapper;
+import com.gemstone.gemfire.internal.cache.ha.HARegionQueue;
+import com.gemstone.gemfire.internal.cache.ha.ThreadIdentifier;
 import com.gemstone.gemfire.internal.cache.tier.Acceptor;
 import com.gemstone.gemfire.internal.cache.tier.MessageType;
 import com.gemstone.gemfire.internal.cache.versions.VersionTag;
@@ -44,17 +121,6 @@ import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.security.AccessControl;
 import com.gemstone.gemfire.security.AuthenticationFailedException;
 import com.gemstone.gemfire.security.AuthenticationRequiredException;
-import org.apache.logging.log4j.Logger;
-
-import java.io.*;
-import java.lang.reflect.Method;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.security.Principal;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static com.gemstone.gemfire.distributed.ConfigurationProperties.*;
 
 /**
  * Class <code>CacheClientNotifier</code> works on the server and manages
@@ -329,40 +395,45 @@ public class CacheClientNotifier {
               new IllegalArgumentException("Invalid conflation byte"), clientVersion);
           return;
       }
-      
+
+      proxy = registerClient(socket, proxyID, proxy, isPrimary, clientConflation,
+        clientVersion, acceptorId, notifyBySubscription);
       
       //TODO:hitesh
-      Properties credentials = HandShake.readCredentials(dis, dos,
-          authenticator, system);
-      if (credentials != null) {
+      Properties credentials = HandShake.readCredentials(dis, dos, system);
+      if (credentials != null && proxy!=null) {
         if (securityLogWriter.fineEnabled()) {
           securityLogWriter.fine("CacheClientNotifier: verifying credentials for proxyID: " + proxyID);
         }
-        Principal principal = HandShake.verifyCredentials(authenticator,
+        Object subject = HandShake.verifyCredentials(authenticator,
             credentials, system.getSecurityProperties(), this.logWriter,
             this.securityLogWriter, member);
-        if (securityLogWriter.fineEnabled()) {
-          securityLogWriter.fine("CacheClientNotifier: successfully verified credentials for proxyID: " + proxyID + " having principal: " + principal.getName());
-        }
-        String postAuthzFactoryName = sysProps
-            .getProperty(SECURITY_CLIENT_ACCESSOR_PP);
-        if (postAuthzFactoryName != null && postAuthzFactoryName.length() > 0) {
-          if (principal == null) {
-            securityLogWriter.warning(
-                LocalizedStrings.CacheClientNotifier_CACHECLIENTNOTIFIER_POST_PROCESS_AUTHORIZATION_CALLBACK_ENABLED_BUT_AUTHENTICATION_CALLBACK_0_RETURNED_WITH_NULL_CREDENTIALS_FOR_PROXYID_1,
-                new Object[] {
-                    SECURITY_CLIENT_AUTHENTICATOR, proxyID });
+        if(subject instanceof Principal){
+          Principal principal = (Principal) subject;
+          if (securityLogWriter.fineEnabled()) {
+            securityLogWriter.fine("CacheClientNotifier: successfully verified credentials for proxyID: " + proxyID + " having principal: " + principal.getName());
           }
-          Method authzMethod = ClassLoadUtil
-              .methodFromName(postAuthzFactoryName);
-          authzCallback = (AccessControl)authzMethod.invoke(null,
-              (Object[])null);
-          authzCallback.init(principal, member, this.getCache());
+
+          String postAuthzFactoryName = sysProps
+              .getProperty(SECURITY_CLIENT_ACCESSOR_PP);
+          if (postAuthzFactoryName != null && postAuthzFactoryName.length() > 0) {
+            if (principal == null) {
+              securityLogWriter.warning(LocalizedStrings.CacheClientNotifier_CACHECLIENTNOTIFIER_POST_PROCESS_AUTHORIZATION_CALLBACK_ENABLED_BUT_AUTHENTICATION_CALLBACK_0_RETURNED_WITH_NULL_CREDENTIALS_FOR_PROXYID_1, new Object[] {
+                SECURITY_CLIENT_AUTHENTICATOR, proxyID
+              });
+            }
+            Method authzMethod = ClassLoadUtil.methodFromName(postAuthzFactoryName);
+            authzCallback = (AccessControl) authzMethod.invoke(null, (Object[]) null);
+            authzCallback.init(principal, member, this.getCache());
+          }
+          proxy.setPostAuthzCallback(authzCallback);
+        }
+        else if(subject instanceof Subject){
+          proxy.setSubject((Subject)subject);
         }
       }
     }
     catch (ClassNotFoundException e) {
-
       throw new IOException(LocalizedStrings.CacheClientNotifier_CLIENTPROXYMEMBERSHIPID_OBJECT_COULD_NOT_BE_CREATED_EXCEPTION_OCCURRED_WAS_0.toLocalizedString(e));
     }
     catch (AuthenticationRequiredException ex) {
@@ -375,24 +446,19 @@ public class CacheClientNotifier {
       writeException(dos, HandShake.REPLY_EXCEPTION_AUTHENTICATION_FAILED, ex, clientVersion);
       return;
     }
-    catch (Exception ex) {
-      logger.warn(LocalizedMessage.create(LocalizedStrings.CacheClientNotifier_AN_EXCEPTION_WAS_THROWN_FOR_CLIENT_0_1, new Object[] {proxyID, ""}), ex);
-      writeException(dos, Acceptor.UNSUCCESSFUL_SERVER_TO_CLIENT, ex, clientVersion);
-      return;
-    }
-    try {
-      proxy = registerClient(socket, proxyID, proxy, isPrimary, clientConflation,
-		  clientVersion, acceptorId, notifyBySubscription);
-    }
     catch (CacheException e) {
       logger.warn(LocalizedMessage.create(LocalizedStrings.CacheClientNotifier_0_REGISTERCLIENT_EXCEPTION_ENCOUNTERED_IN_REGISTRATION_1, new Object[] {this, e}), e);
       IOException io = new IOException(LocalizedStrings.CacheClientNotifier_EXCEPTION_OCCURRED_WHILE_TRYING_TO_REGISTER_INTEREST_DUE_TO_0.toLocalizedString(e.getMessage()));
       io.initCause(e);
       throw io;
     }
-    if (authzCallback != null && proxy != null) {
-      proxy.setPostAuthzCallback(authzCallback);
+    catch (Exception ex) {
+      logger.warn(LocalizedMessage.create(LocalizedStrings.CacheClientNotifier_AN_EXCEPTION_WAS_THROWN_FOR_CLIENT_0_1, new Object[] {proxyID, ""}), ex);
+      writeException(dos, Acceptor.UNSUCCESSFUL_SERVER_TO_CLIENT, ex, clientVersion);
+      return;
     }
+
+
     this._statistics.endClientRegistration(startTime);
   }
 

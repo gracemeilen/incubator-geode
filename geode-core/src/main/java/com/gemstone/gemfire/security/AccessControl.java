@@ -17,13 +17,12 @@
 
 package com.gemstone.gemfire.security;
 
+import java.security.Principal;
+
 import com.gemstone.gemfire.cache.Cache;
 import com.gemstone.gemfire.cache.CacheCallback;
-import com.gemstone.gemfire.cache.CacheFactory;
 import com.gemstone.gemfire.cache.operations.OperationContext;
 import com.gemstone.gemfire.distributed.DistributedMember;
-
-import java.security.Principal;
 
 /**
  * Specifies the interface to authorize operations at the cache or region level
@@ -39,6 +38,8 @@ import java.security.Principal;
  * <code>authorizeOperation</code> method invoked before/after each operation.
  * 
  * @since GemFire 5.5
+ *
+ * @deprecated since Geode 1.0, use {@link SecurityManager} instead
  */
 public interface AccessControl extends CacheCallback {
 

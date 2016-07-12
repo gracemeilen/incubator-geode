@@ -16,6 +16,19 @@
  */
 package com.gemstone.gemfire.distributed.internal;
 
+import static com.gemstone.gemfire.distributed.ConfigurationProperties.*;
+
+import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringTokenizer;
+
 import com.gemstone.gemfire.InternalGemFireException;
 import com.gemstone.gemfire.InvalidValueException;
 import com.gemstone.gemfire.UnmodifiableException;
@@ -26,13 +39,6 @@ import com.gemstone.gemfire.internal.admin.remote.DistributionLocatorId;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.LogWriterImpl;
 import com.gemstone.gemfire.memcached.GemFireMemcachedServer;
-
-import java.lang.reflect.Method;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.*;
-
-import static com.gemstone.gemfire.distributed.ConfigurationProperties.*;
 
 /**
  * Provides an implementation of <code>DistributionConfig</code> that
@@ -1022,9 +1028,9 @@ public abstract class AbstractDistributionConfig
     m.put(MEMCACHED_PORT, "The port GemFireMemcachedServer will listen on. Default is 0. Set to zero to disable GemFireMemcachedServer.");
     m.put(MEMCACHED_PROTOCOL, "The protocol that GemFireMemcachedServer understands. Default is ASCII. Values may be ASCII or BINARY");
     m.put(MEMCACHED_BIND_ADDRESS, "The address the GemFireMemcachedServer will listen on for remote connections. Default is \"\" which causes the GemFireMemcachedServer to listen on the host's default address. This property is ignored if memcached-port is \"0\".");
-    m.put(REDIS_PORT, "The port GemFireRedisServer will listen on. Default is 0. Set to zero to disable GemFireRedisServer.");
-    m.put(REDIS_BIND_ADDRESS, "The address the GemFireRedisServer will listen on for remote connections. Default is \"\" which causes the GemFireRedisServer to listen on the host's default address. This property is ignored if redis-port is \"0\".");
-    m.put(REDIS_PASSWORD, "The password which client of GemFireRedisServer must use to authenticate themselves. The default is none and no authentication will be required.");
+    m.put(REDIS_PORT, "The port GeodeRedisServer will listen on. Default is 0. Set to zero to disable GeodeRedisServer.");
+    m.put(REDIS_BIND_ADDRESS, "The address the GeodeRedisServer will listen on for remote connections. Default is \"\" which causes the GeodeRedisServer to listen on the host's default address. This property is ignored if redis-port is \"0\".");
+    m.put(REDIS_PASSWORD, "The password which client of GeodeRedisServer must use to authenticate themselves. The default is none and no authentication will be required.");
     m.put(ENABLE_CLUSTER_CONFIGURATION, LocalizedStrings.AbstractDistributionConfig_ENABLE_SHARED_CONFIGURATION.toLocalizedString());
     m.put(USE_CLUSTER_CONFIGURATION, LocalizedStrings.AbstractDistributionConfig_USE_SHARED_CONFIGURATION.toLocalizedString());
     m.put(LOAD_CLUSTER_CONFIGURATION_FROM_DIR, LocalizedStrings.AbstractDistributionConfig_LOAD_SHARED_CONFIGURATION_FROM_DIR.toLocalizedString(SharedConfiguration.CLUSTER_CONFIG_ARTIFACTS_DIR_NAME));
@@ -1125,6 +1131,7 @@ public abstract class AbstractDistributionConfig
     m.put(DISTRIBUTED_TRANSACTIONS, "Flag to indicate whether all transactions including JTA should be distributed transactions.  Default is false, meaning colocated transactions.");
 
     m.put(SECURITY_SHIRO_INIT, "The name of the shiro configuration file in the classpath, e.g. shiro.ini");
+    m.put(SECURITY_MANAGER, "User defined fully qualified method name implementing SecurityManager interface for integrated security. Defaults to \"{0}\". Legal values can be any \"method name\" of a static method that is present in the classpath.");
 
     dcAttDescriptions = Collections.unmodifiableMap(m);
 

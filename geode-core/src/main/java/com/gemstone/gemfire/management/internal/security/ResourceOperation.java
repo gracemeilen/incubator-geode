@@ -16,14 +16,15 @@
  */
 package com.gemstone.gemfire.management.internal.security;
 
-import static com.gemstone.gemfire.cache.operations.OperationContext.*;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import javax.management.DescriptorKey;
+
+import com.gemstone.gemfire.security.GeodePermission.Operation;
+import com.gemstone.gemfire.security.GeodePermission.Resource;
 
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
@@ -33,5 +34,5 @@ public @interface ResourceOperation {
   Resource resource() default Resource.NULL;
 
   @DescriptorKey("operation")
-  OperationCode operation() default OperationCode.NULL;
+  Operation operation() default Operation.NULL;
 }

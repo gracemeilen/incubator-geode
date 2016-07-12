@@ -16,6 +16,7 @@
  */
 package com.gemstone.gemfire.internal.cache.persistence;
 
+import org.junit.Ignore;
 import org.junit.experimental.categories.Category;
 import org.junit.Test;
 
@@ -258,7 +259,9 @@ public class PersistentRVVRecoveryDUnitTest extends PersistentReplicatedTestBase
    * start expiring based on their original time-stamp, NOT the time-stamp
    * assigned during scheduling for expiration after recovery.
    */
-  public void DISABLED_testLotsOfTombstonesExpiration() throws Throwable {
+  @Ignore
+  @Test
+  public void testLotsOfTombstonesExpiration() throws Throwable {
     Host host = Host.getHost(0);
     final VM vm0 = host.getVM(0);
     
@@ -266,9 +269,8 @@ public class PersistentRVVRecoveryDUnitTest extends PersistentReplicatedTestBase
       
       @Override
       public void run2() throws CacheException {
-        // TODO Auto-generated method stub
-        long replicatedTombstoneTomeout = TombstoneService.REPLICATED_TOMBSTONE_TIMEOUT;
-        long expiriredTombstoneLimit = TombstoneService.EXPIRED_TOMBSTONE_LIMIT;
+        long replicatedTombstoneTomeout = TombstoneService.REPLICATE_TOMBSTONE_TIMEOUT;
+        int expiriredTombstoneLimit = TombstoneService.EXPIRED_TOMBSTONE_LIMIT;
         
         try {
           LocalRegion region = createRegion(vm0);
@@ -303,7 +305,7 @@ public class PersistentRVVRecoveryDUnitTest extends PersistentReplicatedTestBase
           // right away when they are gIId based on their original timestamp.
           Wait.pause((int) TEST_REPLICATED_TOMBSTONE_TIMEOUT);
 
-          TombstoneService.REPLICATED_TOMBSTONE_TIMEOUT = TEST_REPLICATED_TOMBSTONE_TIMEOUT;
+          TombstoneService.REPLICATE_TOMBSTONE_TIMEOUT = TEST_REPLICATED_TOMBSTONE_TIMEOUT;
           TombstoneService.EXPIRED_TOMBSTONE_LIMIT = entryCount;
           // Do region GII
           region = createRegion(vm0);
@@ -335,7 +337,7 @@ public class PersistentRVVRecoveryDUnitTest extends PersistentReplicatedTestBase
 
           cache.close();
         } finally {
-          TombstoneService.REPLICATED_TOMBSTONE_TIMEOUT = replicatedTombstoneTomeout;
+          TombstoneService.REPLICATE_TOMBSTONE_TIMEOUT = replicatedTombstoneTomeout;
           TombstoneService.EXPIRED_TOMBSTONE_LIMIT = expiriredTombstoneLimit;
         }    
       }

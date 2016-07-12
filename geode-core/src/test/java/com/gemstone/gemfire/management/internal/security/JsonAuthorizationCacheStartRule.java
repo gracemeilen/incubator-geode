@@ -16,38 +16,38 @@
  */
 package com.gemstone.gemfire.management.internal.security;
 
-import com.gemstone.gemfire.cache.Cache;
-import com.gemstone.gemfire.cache.CacheFactory;
-import org.junit.rules.ExternalResource;
+import static com.gemstone.gemfire.distributed.ConfigurationProperties.*;
 
 import java.util.Properties;
 
-import static com.gemstone.gemfire.distributed.ConfigurationProperties.*;
+import org.junit.rules.ExternalResource;
+
+import com.gemstone.gemfire.cache.Cache;
+import com.gemstone.gemfire.cache.CacheFactory;
 
 public class JsonAuthorizationCacheStartRule extends ExternalResource {
   private Cache cache;
   private int jmxManagerPort = 0;
   private int httpPort = 0;
   private String jsonFile;
-  private boolean doAuthorization;
+  private Class postProcessor;
+
+  public JsonAuthorizationCacheStartRule(int jmxManagerPort, String jsonFile, Class postProcessor) {
+    this.jmxManagerPort = jmxManagerPort;
+    this.jsonFile = jsonFile;
+    this.postProcessor = postProcessor;
+  }
+
 
   public JsonAuthorizationCacheStartRule(int jmxManagerPort, String jsonFile) {
     this.jmxManagerPort = jmxManagerPort;
     this.jsonFile = jsonFile;
-    this.doAuthorization = true;
   }
 
   public JsonAuthorizationCacheStartRule(int jmxManagerPort, int httpPort, String jsonFile) {
     this.jmxManagerPort = jmxManagerPort;
     this.httpPort = httpPort;
     this.jsonFile = jsonFile;
-    this.doAuthorization = true;
-  }
-
-  public JsonAuthorizationCacheStartRule(int jmxManagerPort, String jsonFile, boolean doAuthorization) {
-    this.jmxManagerPort = jmxManagerPort;
-    this.jsonFile = jsonFile;
-    this.doAuthorization = doAuthorization;
   }
 
   protected void before() throws Throwable {
@@ -59,15 +59,18 @@ public class JsonAuthorizationCacheStartRule extends ExternalResource {
     properties.put(JMX_MANAGER_START, "true");
     properties.put(JMX_MANAGER_PORT, String.valueOf(jmxManagerPort));
     properties.put(HTTP_SERVICE_PORT, String.valueOf(httpPort));
-    properties.put(SECURITY_CLIENT_AUTHENTICATOR,
+    properties.put(SECURITY_MANAGER,
         JSONAuthorization.class.getName() + ".create");
-    if (doAuthorization) {
-      properties.put(SECURITY_CLIENT_ACCESSOR, JSONAuthorization.class.getName() + ".create");
+
+    if(postProcessor!=null){
+      properties.put(SECURITY_CLIENT_ACCESSOR_PP, postProcessor.getName()+".create");
     }
+
     JSONAuthorization.setUpWithJsonFile(jsonFile);
 
     cache = new CacheFactory(properties).create();
     cache.addCacheServer().start();
+    cache.createRegionFactory().create("region1");
   }
 
   public Cache getCache(){

@@ -21,18 +21,18 @@ import static org.junit.Assert.*;
 
 import java.util.List;
 
-import com.gemstone.gemfire.internal.AvailablePort;
-import com.gemstone.gemfire.internal.logging.LogService;
-import com.gemstone.gemfire.management.MemberMXBean;
-import com.gemstone.gemfire.security.NotAuthorizedException;
-import com.gemstone.gemfire.test.junit.categories.IntegrationTest;
-
-import com.gemstone.gemfire.test.junit.categories.SecurityTest;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+
+import com.gemstone.gemfire.internal.AvailablePort;
+import com.gemstone.gemfire.internal.logging.LogService;
+import com.gemstone.gemfire.management.MemberMXBean;
+import com.gemstone.gemfire.security.NotAuthorizedException;
+import com.gemstone.gemfire.test.junit.categories.IntegrationTest;
+import com.gemstone.gemfire.test.junit.categories.SecurityTest;
 
 /**
  */
@@ -73,7 +73,7 @@ public class CliCommandsSecurityTest {
         }
         catch(NotAuthorizedException e){
           assertTrue(e.getMessage()+" should contain "+command.getPermission(),
-            e.getMessage().contains("["+command.getPermission().toString()+"]"));
+            e.getMessage().contains(command.getPermission().toString()));
         }
       }
     }
@@ -87,6 +87,5 @@ public class CliCommandsSecurityTest {
       bean.processCommand(command.getCommand());
     }
   }
-
 
 }

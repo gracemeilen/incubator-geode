@@ -16,8 +16,6 @@
  */
 package com.gemstone.gemfire.management.internal.cli.commands;
 
-import static com.gemstone.gemfire.cache.operations.OperationContext.*;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,6 +29,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import org.springframework.shell.core.CommandMarker;
+import org.springframework.shell.core.annotation.CliAvailabilityIndicator;
+import org.springframework.shell.core.annotation.CliCommand;
+import org.springframework.shell.core.annotation.CliOption;
 
 import com.gemstone.gemfire.LogWriter;
 import com.gemstone.gemfire.cache.Cache;
@@ -49,6 +52,7 @@ import com.gemstone.gemfire.cache.execute.ResultCollector;
 import com.gemstone.gemfire.cache.partition.PartitionRebalanceInfo;
 import com.gemstone.gemfire.distributed.DistributedMember;
 import com.gemstone.gemfire.internal.cache.GemFireCacheImpl;
+import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
 import com.gemstone.gemfire.management.DistributedRegionMXBean;
 import com.gemstone.gemfire.management.ManagementService;
 import com.gemstone.gemfire.management.cli.CliMetaData;
@@ -73,12 +77,8 @@ import com.gemstone.gemfire.management.internal.cli.result.ResultBuilder;
 import com.gemstone.gemfire.management.internal.cli.result.TabularResultData;
 import com.gemstone.gemfire.management.internal.cli.shell.Gfsh;
 import com.gemstone.gemfire.management.internal.security.ResourceOperation;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
-
-import org.springframework.shell.core.CommandMarker;
-import org.springframework.shell.core.annotation.CliAvailabilityIndicator;
-import org.springframework.shell.core.annotation.CliCommand;
-import org.springframework.shell.core.annotation.CliOption;
+import com.gemstone.gemfire.security.GeodePermission.Operation;
+import com.gemstone.gemfire.security.GeodePermission.Resource;
 
 /**
  * 
@@ -96,9 +96,8 @@ public class DataCommands implements CommandMarker {
 
   @CliCommand(value = CliStrings.REBALANCE, help = CliStrings.REBALANCE__HELP)
   @CliMetaData(relatedTopic = { CliStrings.TOPIC_GEODE_DATA,
-      CliStrings.TOPIC_GEODE_REGION
-  })
-  @ResourceOperation(resource = Resource.DATA, operation = OperationCode.MANAGE)
+      CliStrings.TOPIC_GEODE_REGION })
+  @ResourceOperation(resource = Resource.DATA, operation = Operation.MANAGE)
   public Result rebalance(
       @CliOption(key = CliStrings.REBALANCE__INCLUDEREGION, unspecifiedDefaultValue = CliMetaData.ANNOTATION_NULL_VALUE, help = CliStrings.REBALANCE__INCLUDEREGION__HELP) String[] includeRegions,
       @CliOption(key = CliStrings.REBALANCE__EXCLUDEREGION, unspecifiedDefaultValue = CliMetaData.ANNOTATION_NULL_VALUE, help = CliStrings.REBALANCE__EXCLUDEREGION__HELP) String[] excludeRegions,
@@ -1028,7 +1027,7 @@ public class DataCommands implements CommandMarker {
       @CliOption(key = { CliStrings.GET__VALUEKLASS }, help = CliStrings.GET__VALUEKLASS__HELP) String valueClass,
       @CliOption(key = CliStrings.GET__LOAD, unspecifiedDefaultValue = "true", specifiedDefaultValue = "true", help = CliStrings.GET__LOAD__HELP) Boolean loadOnCacheMiss)
   {
-    GeodeSecurityUtil.authorizeRegionRead(regionPath);
+    GeodeSecurityUtil.authorizeRegionRead(regionPath, key);
 
     Cache cache = CacheFactory.getAnyInstance();
     DataCommandResult dataResult = null;
@@ -1070,6 +1069,10 @@ public class DataCommands implements CommandMarker {
     dataResult.setKeyClass(keyClass);
     if (valueClass != null)
       dataResult.setValueClass(valueClass);
+
+    Object result = GeodeSecurityUtil.postProcess(regionPath, key, dataResult.getGetResult());
+    dataResult.setGetResult(result);
+
     return makePresentationResult(dataResult);
   }
 
@@ -1084,8 +1087,8 @@ public class DataCommands implements CommandMarker {
       @CliOption(key = { CliStrings.LOCATE_ENTRY__VALUEKLASS }, help = CliStrings.LOCATE_ENTRY__VALUEKLASS__HELP) String valueClass,
       @CliOption(key = { CliStrings.LOCATE_ENTRY__RECURSIVE }, help = CliStrings.LOCATE_ENTRY__RECURSIVE__HELP, unspecifiedDefaultValue = "false") boolean recursive) {
 
-    GeodeSecurityUtil.authorizeRegionRead(regionPath);
-    // Cache cache = CacheFactory.getAnyInstance();
+    GeodeSecurityUtil.authorizeRegionRead(regionPath, key);
+
     DataCommandResult dataResult = null;
 
     if (regionPath == null || regionPath.isEmpty()) {
@@ -1119,6 +1122,7 @@ public class DataCommands implements CommandMarker {
     dataResult.setKeyClass(keyClass);
     if (valueClass != null)
       dataResult.setValueClass(valueClass);
+
     return makePresentationResult(dataResult);
   }
 
@@ -1126,7 +1130,7 @@ public class DataCommands implements CommandMarker {
       CliStrings.TOPIC_GEODE_DATA, CliStrings.TOPIC_GEODE_REGION
   })
   @CliCommand(value = { CliStrings.REMOVE }, help = CliStrings.REMOVE__HELP)
-  @ResourceOperation(resource=Resource.DATA, operation = OperationCode.MANAGE)
+  @ResourceOperation(resource=Resource.DATA, operation = Operation.MANAGE)
   public Result remove(
       @CliOption(key = { CliStrings.REMOVE__KEY }, help = CliStrings.REMOVE__KEY__HELP) String key,
       @CliOption(key = { CliStrings.REMOVE__REGION }, mandatory = true, help = CliStrings.REMOVE__REGION__HELP, optionContext = ConverterHint.REGIONPATH) String regionPath,

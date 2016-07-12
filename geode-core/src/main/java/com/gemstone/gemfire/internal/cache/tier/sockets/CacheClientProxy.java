@@ -17,12 +17,56 @@
 
 package com.gemstone.gemfire.internal.cache.tier.sockets;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.util.ThreadState;
+
 import com.gemstone.gemfire.CancelException;
 import com.gemstone.gemfire.DataSerializer;
+import com.gemstone.gemfire.GemFireIOException;
 import com.gemstone.gemfire.StatisticsFactory;
-import com.gemstone.gemfire.cache.*;
+import com.gemstone.gemfire.cache.Cache;
+import com.gemstone.gemfire.cache.CacheClosedException;
+import com.gemstone.gemfire.cache.CacheException;
+import com.gemstone.gemfire.cache.ClientSession;
+import com.gemstone.gemfire.cache.DynamicRegionFactory;
+import com.gemstone.gemfire.cache.InterestRegistrationEvent;
+import com.gemstone.gemfire.cache.InterestResultPolicy;
+import com.gemstone.gemfire.cache.Region;
+import com.gemstone.gemfire.cache.RegionDestroyedException;
+import com.gemstone.gemfire.cache.RegionExistsException;
 import com.gemstone.gemfire.cache.client.internal.RegisterInterestTracker;
-import com.gemstone.gemfire.cache.operations.*;
+import com.gemstone.gemfire.cache.operations.DestroyOperationContext;
+import com.gemstone.gemfire.cache.operations.InvalidateOperationContext;
+import com.gemstone.gemfire.cache.operations.OperationContext;
+import com.gemstone.gemfire.cache.operations.PutOperationContext;
+import com.gemstone.gemfire.cache.operations.RegionClearOperationContext;
+import com.gemstone.gemfire.cache.operations.RegionCreateOperationContext;
+import com.gemstone.gemfire.cache.operations.RegionDestroyOperationContext;
 import com.gemstone.gemfire.cache.query.CqException;
 import com.gemstone.gemfire.cache.query.internal.cq.CqService;
 import com.gemstone.gemfire.cache.query.internal.cq.InternalCqQuery;
@@ -34,8 +78,21 @@ import com.gemstone.gemfire.i18n.StringId;
 import com.gemstone.gemfire.internal.SystemTimer;
 import com.gemstone.gemfire.internal.SystemTimer.SystemTimerTask;
 import com.gemstone.gemfire.internal.Version;
-import com.gemstone.gemfire.internal.cache.*;
+import com.gemstone.gemfire.internal.cache.CacheDistributionAdvisee;
 import com.gemstone.gemfire.internal.cache.CacheDistributionAdvisor.InitialImageAdvice;
+import com.gemstone.gemfire.internal.cache.ClientServerObserver;
+import com.gemstone.gemfire.internal.cache.ClientServerObserverHolder;
+import com.gemstone.gemfire.internal.cache.Conflatable;
+import com.gemstone.gemfire.internal.cache.DistributedRegion;
+import com.gemstone.gemfire.internal.cache.EntryEventImpl;
+import com.gemstone.gemfire.internal.cache.EnumListenerEvent;
+import com.gemstone.gemfire.internal.cache.EventID;
+import com.gemstone.gemfire.internal.cache.FilterProfile;
+import com.gemstone.gemfire.internal.cache.GemFireCacheImpl;
+import com.gemstone.gemfire.internal.cache.InterestRegistrationEventImpl;
+import com.gemstone.gemfire.internal.cache.LocalRegion;
+import com.gemstone.gemfire.internal.cache.PartitionedRegion;
+import com.gemstone.gemfire.internal.cache.StateFlushOperation;
 import com.gemstone.gemfire.internal.cache.ha.HAContainerWrapper;
 import com.gemstone.gemfire.internal.cache.ha.HARegionQueue;
 import com.gemstone.gemfire.internal.cache.ha.HARegionQueueAttributes;
@@ -51,24 +108,9 @@ import com.gemstone.gemfire.internal.logging.LoggingThreadGroup;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.logging.log4j.LogMarker;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
+import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.util.BlobHelper;
 import com.gemstone.gemfire.security.AccessControl;
-import org.apache.logging.log4j.Logger;
-
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.nio.ByteBuffer;
-import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.regex.Pattern;
 
 /**
  * Class <code>CacheClientProxy</code> represents the server side of the
@@ -223,6 +265,7 @@ public class CacheClientProxy implements ClientSession {
   boolean keepalive = false;
 
   private AccessControl postAuthzCallback;
+  private Subject subject;
 
   /**
    * For multiuser environment..
@@ -360,6 +403,16 @@ public class CacheClientProxy implements ClientSession {
       if (this.postAuthzCallback != null)
         this.postAuthzCallback.close();
       this.postAuthzCallback = authzCallback;
+    }
+  }
+
+  public void setSubject(Subject subject) {
+    //TODO:hitesh synchronization
+    synchronized (this.clientUserAuthsLock) {
+      if (this.subject != null) {
+        subject.logout();
+      }
+      this.subject = subject;
     }
   }
   
@@ -1084,27 +1137,7 @@ public class CacheClientProxy implements ClientSession {
         
         // Enqueue the initial value message for the client if necessary
         if (policy == InterestResultPolicy.KEYS_VALUES) {
-          Get70 request = (Get70)Get70.getCommand();
-          LocalRegion lr = (LocalRegion) this._cache.getRegion(regionName);
-          Get70.Entry entry = request.getValueAndIsObject(lr, keyOfInterest, null,
-              null);
-          boolean isObject = entry.isObject;
-          byte[] value = null;
-          if (entry.value instanceof byte[]) {
-            value = (byte[])entry.value;
-          } else {
-            try {
-              value = CacheServerHelper.serialize(entry.value);
-            } catch (IOException e) {
-              logger.warn(LocalizedMessage.create(LocalizedStrings.CacheClientProxy_THE_FOLLOWING_EXCEPTION_OCCURRED_0, entry.value), e);
-            }
-          }
-          VersionTag tag = entry.versionTag;
-          ClientUpdateMessage updateMessage = new ClientUpdateMessageImpl(
-              EnumListenerEvent.AFTER_CREATE, lr, keyOfInterest, value, null,
-              (isObject ? (byte) 0x01 : (byte) 0x00), null, this.proxyID,
-              new EventID(this._cache.getDistributedSystem()), tag);
-          CacheClientNotifier.routeSingleClientMessage(updateMessage, this.proxyID);
+          enqueueInitialValue(null, regionName, keyOfInterest);
         }
         // Add the client to the region's filters
         //addFilterRegisteredClients(regionName, keyOfInterest);
@@ -1136,16 +1169,58 @@ public class CacheClientProxy implements ClientSession {
     }
 
     // Enqueue the interest registration message for the client.
+    enqueueInterestRegistrationMessage(message);
+  }
+
+  private void enqueueInitialValue(ClientInterestMessageImpl clientInterestMessage, String regionName, Object keyOfInterest) {
+    // Get the initial value
+    Get70 request = (Get70)Get70.getCommand();
+    LocalRegion lr = (LocalRegion) this._cache.getRegion(regionName);
+    Get70.Entry entry = request.getValueAndIsObject(lr, keyOfInterest, null, null);
+    boolean isObject = entry.isObject;
+    byte[] value = null;
+
+    // If the initial value is not null, add it to the client's queue
+    if (entry.value != null) {
+      if (entry.value instanceof byte[]) {
+        value = (byte[])entry.value;
+      } else {
+        try {
+          value = CacheServerHelper.serialize(entry.value);
+        } catch (IOException e) {
+          logger.warn(LocalizedMessage.create(LocalizedStrings.CacheClientProxy_THE_FOLLOWING_EXCEPTION_OCCURRED_0, entry.value), e);
+        }
+      }
+      VersionTag tag = entry.versionTag;
+
+      // Initialize the event id.
+      EventID eventId = null;
+      if (clientInterestMessage == null) {
+        // If the clientInterestMessage is null, create a new event id
+        eventId = new EventID(this._cache.getDistributedSystem());
+      } else {
+        // If the clientInterestMessage is not null, base the event id off its event id to fix GEM-794.
+        // This will cause the updateMessage created below to have the same event id as the one created
+        // in the primary.
+        eventId = new EventID(clientInterestMessage.getEventId(), 1);
+      }
+      ClientUpdateMessage updateMessage = new ClientUpdateMessageImpl(
+          EnumListenerEvent.AFTER_CREATE, lr, keyOfInterest, value, null,
+          (isObject ? (byte) 0x01 : (byte) 0x00), null, this.proxyID,
+          eventId, tag);
+      CacheClientNotifier.routeSingleClientMessage(updateMessage, this.proxyID);
+    }
+  }
+  
+  private void enqueueInterestRegistrationMessage(ClientInterestMessageImpl message) {
+    // Enqueue the interest registration message for the client.
     // If the client is not 7.0.1 or greater and the key of interest is a list,
     // then create an individual message for each entry in the list since the
     // client doesn't support a ClientInterestMessageImpl containing a list.
     if (Version.GFE_701.compareTo(this.clientVersion) > 0
-        && keyOfInterest instanceof List) {
-      for (Iterator i = ((List) keyOfInterest).iterator(); i.hasNext();) {
-        this._messageDispatcher.enqueueMessage(new ClientInterestMessageImpl(
-            new EventID(this._cache.getDistributedSystem()), regionName,
-            i.next(), interestType, policy.getOrdinal(), isDurable, !receiveValues,
-            ClientInterestMessageImpl.REGISTER));
+        && message.getKeyOfInterest() instanceof List) {
+      for (Iterator i = ((List) message.getKeyOfInterest()).iterator(); i.hasNext();) {
+        this._messageDispatcher.enqueueMessage(new ClientInterestMessageImpl(message, i.next()));
      }
     } else {
       this._messageDispatcher.enqueueMessage(message);
@@ -1205,20 +1280,7 @@ public class CacheClientProxy implements ClientSession {
     }
  
     // Enqueue the interest unregistration message for the client.
-    // If the client is not 7.0.1 or greater and the key of interest is a list,
-    // then create an individual message for each entry in the list since the
-    // client doesn't support a ClientInterestMessageImpl containing a list.
-    if (Version.GFE_701.compareTo(this.clientVersion) > 0
-        && keyOfInterest instanceof List) {
-      for (Iterator i = ((List) keyOfInterest).iterator(); i.hasNext();) {
-        this._messageDispatcher.enqueueMessage(new ClientInterestMessageImpl(
-            new EventID(this._cache.getDistributedSystem()), regionName,
-            i.next(), interestType, (byte) 0, isDurable, !receiveValues,
-            ClientInterestMessageImpl.UNREGISTER));
-      }
-    } else {
-      this._messageDispatcher.enqueueMessage(message);
-    }
+    enqueueInterestRegistrationMessage(message);
   }
   
   protected void notifySecondariesOfInterestChange(ClientInterestMessageImpl message) {
@@ -1410,6 +1472,7 @@ public class CacheClientProxy implements ClientSession {
 
   /** sent by the cache client notifier when there is an interest registration change */
   protected void processInterestMessage(ClientInterestMessageImpl message) { 
+    // Register or unregister interest depending on the interest type
     int interestType = message.getInterestType(); 
     String regionName = message.getRegionName(); 
     Object key = message.getKeyOfInterest(); 
@@ -1460,7 +1523,18 @@ public class CacheClientProxy implements ClientSession {
           .append(InterestType.getString(message.getInterestType()));
         logger.debug(buffer.toString()); 
       } 
-    } 
+    }
+    
+    // Enqueue the interest message in this secondary proxy (fix for bug #52088)
+    enqueueInterestRegistrationMessage(message);
+    
+    // Enqueue the initial value if the message is register on a key that is not a list (fix for bug #52088)
+    if (message.isRegister()
+        && message.getInterestType() == InterestType.KEY
+        && !(key instanceof List)
+        && InterestResultPolicy.fromOrdinal(message.getInterestResultPolicy()) == InterestResultPolicy.KEYS_VALUES) {
+      enqueueInitialValue(message, regionName, key);
+    }
   } 
 
   private boolean postDeliverAuthCheckPassed(ClientUpdateMessage clientMessage) {
@@ -1591,6 +1665,7 @@ public class CacheClientProxy implements ClientSession {
    */
   protected void deliverMessage(Conflatable conflatable)
   {
+    ThreadState state = GeodeSecurityUtil.bindSubject(this.subject);
     ClientUpdateMessage clientMessage = null;
     if(conflatable instanceof HAEventWrapper) {
       clientMessage = ((HAEventWrapper)conflatable).getClientUpdateMessage();
@@ -1599,6 +1674,23 @@ public class CacheClientProxy implements ClientSession {
     } 
 
     this._statistics.incMessagesReceived();
+
+    // post process
+    if(GeodeSecurityUtil.needPostProcess()) {
+      Object oldValue = clientMessage.getValue();
+      if (clientMessage.valueIsObject()) {
+        Object newValue = GeodeSecurityUtil.postProcess(clientMessage.getRegionName(), clientMessage.getKeyOfInterest(), EntryEventImpl
+          .deserialize((byte[]) oldValue));
+        try {
+          clientMessage.setLatestValue(BlobHelper.serializeToBlob(newValue));
+        } catch (IOException e) {
+          throw new GemFireIOException("Exception serializing entry value", e);
+        }
+      } else {
+        Object newValue = GeodeSecurityUtil.postProcess(clientMessage.getRegionName(), clientMessage.getKeyOfInterest(), oldValue);
+        clientMessage.setLatestValue(newValue);
+      }
+    }
 
     if (clientMessage.needsNoAuthorizationCheck() || postDeliverAuthCheckPassed(clientMessage)) {
       // If dispatcher is getting initialized, add the event to temporary queue.
@@ -1625,6 +1717,9 @@ public class CacheClientProxy implements ClientSession {
     } else {
       this._statistics.incMessagesFailedQueued();
     }
+
+    if(state!=null)
+      state.clear();
   }
 
   protected void sendMessageDirectly(ClientMessage message) {
@@ -2859,6 +2954,9 @@ public class CacheClientProxy implements ClientSession {
         getProxy().resetPingCounter();
       } finally {
         this.socketWriteLock.unlock();
+      }
+      if (logger.isTraceEnabled()) {
+        logger.trace("{}: Sent {}", this, message);
       }
     }
 

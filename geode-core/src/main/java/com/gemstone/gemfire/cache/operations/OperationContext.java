@@ -17,8 +17,6 @@
 
 package com.gemstone.gemfire.cache.operations;
 
-import org.apache.shiro.authz.permission.WildcardPermission;
-
 /**
  * Encapsulates a cache operation and the data associated with it for both the
  * pre-operation and post-operation cases. Implementations for specific
@@ -29,15 +27,10 @@ import org.apache.shiro.authz.permission.WildcardPermission;
  * Implementations of this interface are <b>not</b> expected to be thread-safe.
  *
  * @since GemFire 5.5
+ *
+ * @deprecated since Geode1.0, use {@link com.gemstone.gemfire.security.GeodePermission} instead
  */
-public abstract class OperationContext extends WildcardPermission{
-  public static String ALL_REGIONS="*";
-
-  public enum Resource {
-    NULL,
-    CLUSTER,
-    DATA
-  };
+public abstract class OperationContext{
 
   public enum OperationCode {
     @Deprecated
@@ -77,11 +70,7 @@ public abstract class OperationContext extends WildcardPermission{
     @Deprecated
     EXECUTE_FUNCTION,
     @Deprecated
-    GET_DURABLE_CQS,
-    NULL,
-    MANAGE,
-    WRITE,
-    READ;
+    GET_DURABLE_CQS;
 
     /**
      * Check if this is an entry get operation.
@@ -300,14 +289,6 @@ public abstract class OperationContext extends WildcardPermission{
    */
   public abstract OperationCode getOperationCode();
 
-  public Resource getResource(){
-    return Resource.NULL;
-  }
-
-  public String getRegionName(){
-    return ALL_REGIONS;
-  }
-
   /**
    * True if the context is for post-operation.
    *
@@ -357,14 +338,6 @@ public abstract class OperationContext extends WildcardPermission{
         || opCode.isRemoveAll()
         || opCode.isInvalidate() || opCode.isRegionCreate()
         || opCode.isRegionDestroy() || opCode.isRegionClear());
-  }
-
-  @Override
-  public String toString(){
-    if(ALL_REGIONS.equals(getRegionName()))
-      return getResource()+":"+getOperationCode();
-    else
-      return getResource()+":"+getOperationCode()+":"+getRegionName();
   }
 
 }
