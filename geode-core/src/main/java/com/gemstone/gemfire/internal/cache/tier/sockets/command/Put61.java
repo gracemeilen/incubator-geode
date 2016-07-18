@@ -43,7 +43,8 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.GemFireSecurityException;
 
 /**
@@ -172,8 +173,6 @@ public class Put61 extends BaseCommand {
       return;
     }
 
-    GeodeSecurityUtil.authorizeRegionWrite(regionName, key.toString());
-
     // try {
     // this.eventId = (EventID)eventPart.getObject();
     ByteBuffer eventIdPartsBuffer = ByteBuffer.wrap(eventPart.getSerializedForm());
@@ -189,6 +188,9 @@ public class Put61 extends BaseCommand {
       boolean isObject = valuePart.isObject();
       boolean isMetaRegion = region.isUsedForMetaRegion();
       msg.setMetaRegion(isMetaRegion);
+
+      this.securityService.authorizeRegionWrite(regionName, key.toString());
+
       AuthorizeRequest authzRequest = null;
       if (!isMetaRegion) {
         authzRequest = servConn.getAuthzRequest();

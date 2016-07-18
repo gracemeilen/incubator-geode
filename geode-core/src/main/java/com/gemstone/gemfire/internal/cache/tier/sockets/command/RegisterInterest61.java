@@ -42,7 +42,7 @@ import com.gemstone.gemfire.internal.cache.vmotion.VMotionObserverHolder;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+
 /**
  * @since GemFire 6.1
  */
@@ -176,10 +176,10 @@ public class RegisterInterest61 extends BaseCommand {
     }
 
     if(interestType == InterestType.REGULAR_EXPRESSION) {
-      GeodeSecurityUtil.authorizeRegionRead(regionName);
+      this.securityService.authorizeRegionRead(regionName);
     }
     else {
-      GeodeSecurityUtil.authorizeRegionRead(regionName, key.toString());
+      this.securityService.authorizeRegionRead(regionName, key.toString());
     }
 
     // input key not null

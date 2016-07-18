@@ -53,12 +53,14 @@ import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.internal.util.Breadcrumbs;
 
 public class PutAll80 extends BaseCommand {
   
   private final static PutAll80 singleton = new PutAll80();
-  
+
   public static Command getCommand() {
     return singleton;
   }
@@ -142,8 +144,6 @@ public class PutAll80 extends BaseCommand {
         servConn.setAsTrue(RESPONDED);
         return;
       }
-
-      GeodeSecurityUtil.authorizeRegionWrite(regionName);
 
       final int BASE_PART_COUNT = getBasePartCount();
       
@@ -266,7 +266,8 @@ public class PutAll80 extends BaseCommand {
         servConn.setRequestSpecificTimeout(timeout);
       }
 
-      
+      this.securityService.authorizeRegionWrite(regionName);
+
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {
         // TODO SW: This is to handle DynamicRegionFactory create

@@ -38,7 +38,8 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 
 public class DestroyRegion extends BaseCommand {
 
@@ -115,9 +116,6 @@ public class DestroyRegion extends BaseCommand {
       return;
     }
 
-    // user needs to have data:manage on all regions in order to destory a particular region
-    GeodeSecurityUtil.authorizeDataManage();
-
     // Destroy the region
     ByteBuffer eventIdPartsBuffer = ByteBuffer.wrap(eventPart.getSerializedForm());
     long threadId = EventID.readEventIdPartsFromOptmizedByteArray(eventIdPartsBuffer);
@@ -125,6 +123,9 @@ public class DestroyRegion extends BaseCommand {
     EventID eventId = new EventID(servConn.getEventMemberIDByteArray(), threadId, sequenceId);
 
     try {
+      // user needs to have data:manage on all regions in order to destory a particular region
+      this.securityService.authorizeDataManage();
+
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {
         RegionDestroyOperationContext destroyContext = authzRequest.destroyRegionAuthorize(regionName, callbackArg);

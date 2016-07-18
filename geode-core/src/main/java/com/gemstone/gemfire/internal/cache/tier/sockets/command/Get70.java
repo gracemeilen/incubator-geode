@@ -48,7 +48,8 @@ import com.gemstone.gemfire.internal.offheap.annotations.Retained;
 import com.gemstone.gemfire.internal.offheap.annotations.Unretained;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 
 public class Get70 extends BaseCommand {
@@ -144,9 +145,6 @@ public class Get70 extends BaseCommand {
       return;
     }
 
-    // for integrated security
-    GeodeSecurityUtil.authorizeRegionRead(regionName, key.toString());
-
     Region region = crHelper.getRegion(regionName);
     if (region == null) {
       String reason = LocalizedStrings.Request__0_WAS_NOT_FOUND_DURING_GET_REQUEST.toLocalizedString(regionName);
@@ -157,6 +155,9 @@ public class Get70 extends BaseCommand {
 
     GetOperationContext getContext = null;
     try {
+      // for integrated security
+      this.securityService.authorizeRegionRead(regionName, key.toString());
+
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {
         getContext = authzRequest
@@ -217,7 +218,7 @@ public class Get70 extends BaseCommand {
       }
 
       // post process
-      data = GeodeSecurityUtil.postProcess(regionName, key, data);
+      data = this.securityService.postProcess(regionName, key, data);
 
       long oldStart = start;
       start = DistributionStats.getStatTime();

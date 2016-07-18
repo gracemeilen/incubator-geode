@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 
 import java.io.IOException;
@@ -37,7 +36,8 @@ import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 
 public class GetAll651 extends BaseCommand {
@@ -196,7 +196,7 @@ public class GetAll651 extends BaseCommand {
       }
 
       try {
-        GeodeSecurityUtil.authorizeRegionRead(regionName, key.toString());
+        this.securityService.authorizeRegionRead(regionName, key.toString());
       } catch (NotAuthorizedException ex) {
         logger.warn(LocalizedMessage.create(LocalizedStrings.GetAll_0_CAUGHT_THE_FOLLOWING_EXCEPTION_ATTEMPTING_TO_GET_VALUE_FOR_KEY_1, new Object[] {
           servConn.getName(),
@@ -242,7 +242,7 @@ public class GetAll651 extends BaseCommand {
         }
       }
 
-      value = GeodeSecurityUtil.postProcess(regionName, key, value);
+      value = this.securityService.postProcess(regionName, key, value);
 
       if (isDebugEnabled) {
         logger.debug("{}: Returning value for key={}: {}", servConn.getName(), key, value);

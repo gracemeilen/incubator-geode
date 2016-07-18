@@ -44,7 +44,6 @@ import com.gemstone.gemfire.internal.cache.tier.MessageType;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
 
 public abstract class BaseCommandQuery extends BaseCommand {
 
@@ -63,7 +62,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
    *         false in case of failure.
    * @throws IOException
    */
-  protected static boolean processQuery(Message msg, Query query,
+  protected boolean processQuery(Message msg, Query query,
       String queryString, Set regionNames, long start, ServerCQ cqQuery,
       QueryOperationContext queryContext, ServerConnection servConn, 
       boolean sendResults)
@@ -87,7 +86,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
    *         false in case of failure.
    * @throws IOException
    */
-  protected static boolean processQueryUsingParams(Message msg, Query query,
+  protected boolean processQueryUsingParams(Message msg, Query query,
       String queryString, Set regionNames, long start, ServerCQ cqQuery,
       QueryOperationContext queryContext, ServerConnection servConn, 
       boolean sendResults, Object[] params)
@@ -111,7 +110,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
     try {
       // integrated security
       for(Object regionName:regionNames){
-        GeodeSecurityUtil.authorizeRegionRead(regionName.toString());
+        this.securityService.authorizeRegionRead(regionName.toString());
       }
 
       // Execute query
@@ -158,7 +157,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
         SelectResults selectResults = (SelectResults)result;
 
         // post process, iterate through the result for post processing
-        if(GeodeSecurityUtil.needPostProcess()) {
+        if(this.securityService.needPostProcess()) {
           List list = selectResults.asList();
           for (Iterator<Object> valItr = list.iterator(); valItr.hasNext(); ) {
             Object value = valItr.next();
@@ -167,13 +166,13 @@ public abstract class BaseCommandQuery extends BaseCommand {
 
             if (value instanceof CqEntry) {
               CqEntry cqEntry = (CqEntry) value;
-              Object cqNewValue = GeodeSecurityUtil.postProcess(null, cqEntry.getKey(), cqEntry.getValue());
+              Object cqNewValue = this.securityService.postProcess(null, cqEntry.getKey(), cqEntry.getValue());
               if (!cqEntry.getValue().equals(cqNewValue)) {
                 selectResults.remove(value);
                 selectResults.add(new CqEntry(cqEntry.getKey(), cqNewValue));
               }
             } else {
-              Object newValue = GeodeSecurityUtil.postProcess(null, null, value);
+              Object newValue = this.securityService.postProcess(null, null, value);
               if (!value.equals(newValue)) {
                 selectResults.remove(value);
                 selectResults.add(newValue);
@@ -334,7 +333,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
     return true;
   }
   
-  private static boolean sendCqResultsWithKey(ServerConnection servConn) {
+  private boolean sendCqResultsWithKey(ServerConnection servConn) {
     Version clientVersion = servConn.getClientVersion();
     if (clientVersion.compareTo(Version.GFE_65) >= 0) {
       return true;
@@ -342,7 +341,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
     return false;
   }
 
-  protected static void sendCqResponse(int msgType, String msgStr, int txId,
+  protected void sendCqResponse(int msgType, String msgStr, int txId,
       Throwable e, ServerConnection servConn) throws IOException {
     ChunkedMessage cqMsg = servConn.getChunkedResponseMessage();
     if (logger.isDebugEnabled()) {
@@ -391,7 +390,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
     }
   }
   
-  private static void sendResultsAsObjectArray(SelectResults selectResults,
+  private void sendResultsAsObjectArray(SelectResults selectResults,
       int numberOfChunks, ServerConnection servConn, 
       boolean isStructs, CollectionType collectionType, String queryString, ServerCQ cqQuery, boolean sendCqResultsWithKey, boolean sendResults)
       throws IOException {
@@ -482,7 +481,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
     }
   }
 
-  private static void sendResultsAsObjectPartList(int numberOfChunks,
+  private void sendResultsAsObjectPartList(int numberOfChunks,
       ServerConnection servConn, List objs, boolean isStructs,
       CollectionType collectionType, String queryString, ServerCQ cqQuery, boolean sendCqResultsWithKey, boolean sendResults)
       throws IOException {
@@ -546,7 +545,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
    }
   }
   
-  private static void addToObjectPartList(ObjectPartList serializedObjs,
+  private void addToObjectPartList(ObjectPartList serializedObjs,
       Object res, CollectionType collectionType, boolean lastChunk,
       ServerConnection servConn, boolean isStructs) throws IOException {
 
@@ -591,7 +590,7 @@ public abstract class BaseCommandQuery extends BaseCommand {
     }
   }
   
-  private static void addDeSerializedObjectToObjectPartList(
+  private void addDeSerializedObjectToObjectPartList(
       ObjectPartList objPartList, Object obj) {
     if (obj instanceof byte[]) {
       objPartList.addPart(null, obj, ObjectPartList.BYTES, null);
