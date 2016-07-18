@@ -89,9 +89,9 @@ public class Size extends BaseCommand {
       return;
     }
 
-    GeodeSecurityUtil.authorizeRegionRead(regionName);
     // Size the entry
     try {
+      this.securityService.authorizeRegionRead(regionName);
           /*
            *
            * txtodo: doesn't seem like there is any notion of authzSize

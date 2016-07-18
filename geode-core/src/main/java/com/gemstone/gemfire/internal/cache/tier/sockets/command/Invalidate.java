@@ -42,10 +42,10 @@ import com.gemstone.gemfire.internal.cache.versions.VersionTag;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.internal.util.Breadcrumbs;
 import com.gemstone.gemfire.security.GemFireSecurityException;
-
 
 public class Invalidate extends BaseCommand {
 
@@ -133,10 +133,11 @@ public class Invalidate extends BaseCommand {
 
     VersionTag tag = null;
 
-    // for integrated security
-    GeodeSecurityUtil.authorizeRegionWrite(regionName, key.toString());
 
     try {
+      // for integrated security
+      this.securityService.authorizeRegionWrite(regionName, key.toString());
+
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {
         InvalidateOperationContext invalidateContext = authzRequest.invalidateAuthorize(regionName, key, callbackArg);

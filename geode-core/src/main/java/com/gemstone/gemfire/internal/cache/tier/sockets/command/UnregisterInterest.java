@@ -101,10 +101,16 @@ public class UnregisterInterest extends BaseCommand {
       return;
     }
 
+    try {
     if (interestType == InterestType.REGULAR_EXPRESSION) {
-      GeodeSecurityUtil.authorizeRegionRead(regionName);
+      this.securityService.authorizeRegionRead(regionName);
     } else {
-      GeodeSecurityUtil.authorizeRegionRead(regionName, key.toString());
+      this.securityService.authorizeRegionRead(regionName, key.toString());
+    }
+    } catch (NotAuthorizedException ex) {
+      writeException(msg, ex, false, servConn);
+      servConn.setAsTrue(RESPONDED);
+      return;
     }
 
     AuthorizeRequest authzRequest = servConn.getAuthzRequest();

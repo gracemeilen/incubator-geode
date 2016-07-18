@@ -40,13 +40,14 @@ import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
-
 
 public class KeySet extends BaseCommand {
 
   private final static KeySet singleton = new KeySet();
+
 
   public static Command getCommand() {
     return singleton;
@@ -96,7 +97,13 @@ public class KeySet extends BaseCommand {
       return;
     }
 
-    GeodeSecurityUtil.authorizeRegionRead(regionName);
+    try {
+      this.securityService.authorizeRegionRead(regionName);
+    } catch (NotAuthorizedException ex) {
+      writeChunkedException(msg, ex, false, servConn);
+      servConn.setAsTrue(RESPONDED);
+      return;
+    }
 
     KeySetOperationContext keySetContext = null;
     AuthorizeRequest authzRequest = servConn.getAuthzRequest();

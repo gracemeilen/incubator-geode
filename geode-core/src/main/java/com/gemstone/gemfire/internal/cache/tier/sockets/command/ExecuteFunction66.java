@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 
 import java.io.IOException;
@@ -62,7 +61,8 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 
 /**
  * @since GemFire 6.6
@@ -186,9 +186,10 @@ public class ExecuteFunction66 extends BaseCommand {
         functionObject = (Function) function;
       }
 
-      GeodeSecurityUtil.authorizeDataWrite();
-
       FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId(), null);
+
+      this.securityService.authorizeDataWrite();
+
       // check if the caller is authorized to do this operation on server
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       ExecuteFunctionOperationContext executeContext = null;
