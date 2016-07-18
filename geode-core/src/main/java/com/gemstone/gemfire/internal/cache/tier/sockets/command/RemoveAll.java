@@ -128,8 +128,6 @@ public class RemoveAll extends BaseCommand {
         return;
       }
 
-      GeodeSecurityUtil.authorizeRegionWrite(regionName);
-      
       // part 1: eventID
       eventPart = msg.getPart(1);
       ByteBuffer eventIdPartsBuffer = ByteBuffer.wrap(eventPart
@@ -211,6 +209,8 @@ public class RemoveAll extends BaseCommand {
         int timeout = msg.getPart(5 + numberOfKeys).getInt();
         servConn.setRequestSpecificTimeout(timeout);
       }
+
+      this.securityService.authorizeRegionWrite(regionName);
 
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {

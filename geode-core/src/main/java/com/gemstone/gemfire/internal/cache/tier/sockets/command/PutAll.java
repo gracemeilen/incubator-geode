@@ -49,11 +49,14 @@ import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 
 public class PutAll extends BaseCommand {
   
   private final static PutAll singleton = new PutAll();
-  
+
+
   public static Command getCommand() {
     return singleton;
   }
@@ -122,8 +125,6 @@ public class PutAll extends BaseCommand {
         return;
       }
 
-      GeodeSecurityUtil.authorizeRegionWrite(regionName);
-
       // part 1: eventID
       eventPart = msg.getPart(1);
       ByteBuffer eventIdPartsBuffer = ByteBuffer.wrap(eventPart
@@ -183,7 +184,8 @@ public class PutAll extends BaseCommand {
         servConn.setRequestSpecificTimeout(timeout);
       }
 
-      
+      this.securityService.authorizeRegionWrite(regionName);
+
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {
         // TODO SW: This is to handle DynamicRegionFactory create

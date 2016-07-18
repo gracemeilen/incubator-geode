@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 
 import java.io.IOException;
@@ -43,7 +42,8 @@ import com.gemstone.gemfire.internal.offheap.OffHeapHelper;
 import com.gemstone.gemfire.internal.offheap.annotations.Retained;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 
 public class GetAll70 extends BaseCommand {
@@ -54,10 +54,6 @@ public class GetAll70 extends BaseCommand {
     return singleton;
   }
 
-  /**
-   * client wants values to be serialized as byte arrays, not objects
-   */
-  // private boolean requestSerializedValues;
   protected GetAll70() {
   }
 
@@ -221,7 +217,7 @@ public class GetAll70 extends BaseCommand {
         }
 
         try {
-          GeodeSecurityUtil.authorizeRegionRead(regionName, key.toString());
+          this.securityService.authorizeRegionRead(regionName, key.toString());
         } catch (NotAuthorizedException ex) {
           logger.warn(LocalizedMessage.create(LocalizedStrings.GetAll_0_CAUGHT_THE_FOLLOWING_EXCEPTION_ATTEMPTING_TO_GET_VALUE_FOR_KEY_1, new Object[] {
             servConn.getName(),
@@ -272,7 +268,7 @@ public class GetAll70 extends BaseCommand {
             }
           }
 
-          data = GeodeSecurityUtil.postProcess(regionName, key, data);
+          data = this.securityService.postProcess(regionName, key, data);
 
           // Add the entry to the list that will be returned to the client
           if (keyNotPresent) {

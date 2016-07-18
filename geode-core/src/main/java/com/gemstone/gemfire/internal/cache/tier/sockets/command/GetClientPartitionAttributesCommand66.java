@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 
 import java.io.IOException;
@@ -35,7 +34,6 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.Message;
 import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
 
 /**
  * {@link Command} for {@link GetClientPartitionAttributesOp} operation for 6.6
@@ -87,7 +85,6 @@ public class GetClientPartitionAttributesCommand66 extends BaseCommand {
     }
 
     try {
-      GeodeSecurityUtil.authorizeClusterRead();
       Message responseMsg = servConn.getResponseMessage();
       responseMsg.setTransactionId(msg.getTransactionId());
       responseMsg

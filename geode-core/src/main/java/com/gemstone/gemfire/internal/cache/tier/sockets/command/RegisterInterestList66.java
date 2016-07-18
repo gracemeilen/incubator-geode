@@ -175,7 +175,6 @@ public class RegisterInterestList66 extends BaseCommand {
           s, servConn);
       servConn.setAsTrue(RESPONDED);
     }
-    GeodeSecurityUtil.authorizeRegionRead(regionName);
 
    // key not null
       LocalRegion region = (LocalRegion)crHelper.getRegion(regionName);
@@ -186,6 +185,7 @@ public class RegisterInterestList66 extends BaseCommand {
         // responded = true;
       } // else { // region not null
       try {
+        this.securityService.authorizeRegionRead(regionName);
         AuthorizeRequest authzRequest = servConn.getAuthzRequest();
         if (authzRequest != null) {
           // TODO SW: This is a workaround for DynamicRegionFactory

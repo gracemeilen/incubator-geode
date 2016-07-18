@@ -40,10 +40,13 @@ import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 
 public class RegisterInterest extends BaseCommand {
 
   private final static RegisterInterest singleton = new RegisterInterest();
+
 
   public static Command getCommand() {
     return singleton;
@@ -142,14 +145,6 @@ public class RegisterInterest extends BaseCommand {
       return;
     }
 
-    if(interestType == InterestType.REGULAR_EXPRESSION) {
-      GeodeSecurityUtil.authorizeRegionRead(regionName);
-    }
-    else {
-      GeodeSecurityUtil.authorizeRegionRead(regionName, key.toString());
-    }
-
-
     // input key not null
     LocalRegion region = (LocalRegion)crHelper.getRegion(regionName);
     if (region == null) {
@@ -160,6 +155,14 @@ public class RegisterInterest extends BaseCommand {
     }
     // Register interest
     try {
+
+      if(interestType == InterestType.REGULAR_EXPRESSION) {
+        this.securityService.authorizeRegionRead(regionName);
+      }
+      else {
+        this.securityService.authorizeRegionRead(regionName, key.toString());
+      }
+
       AuthorizeRequest authzRequest = servConn.getAuthzRequest();
       if (authzRequest != null) {
         // TODO SW: This is a workaround for DynamicRegionFactory
