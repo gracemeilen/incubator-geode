@@ -23,7 +23,6 @@ import java.io.IOException;
 
 import com.gemstone.gemfire.cache.AttributesFactory;
 import com.gemstone.gemfire.cache.Region;
-import com.gemstone.gemfire.internal.cache.tier.CachedRegionHelper;
 import com.gemstone.gemfire.internal.cache.tier.Command;
 import com.gemstone.gemfire.internal.cache.tier.MessageType;
 import com.gemstone.gemfire.internal.cache.tier.sockets.BaseCommand;
@@ -33,8 +32,6 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
-import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 
 public class CreateRegion extends BaseCommand {
@@ -45,14 +42,10 @@ public class CreateRegion extends BaseCommand {
     return singleton;
   }
 
-  private CreateRegion() {
-  }
-
   @Override
   public void cmdExecute(Message msg, ServerConnection servConn, long start) throws IOException {
     Part regionNamePart = null;
     String regionName = null;
-    CachedRegionHelper crHelper = servConn.getCachedRegionHelper();
     servConn.setAsTrue(REQUIRES_RESPONSE);
     // bserverStats.incLong(readDestroyRequestTimeId,
     // DistributionStats.getStatTime() - start);
@@ -88,7 +81,7 @@ public class CreateRegion extends BaseCommand {
       return;
     }
 
-    Region parentRegion = crHelper.getRegion(parentRegionName);
+    Region parentRegion = servConn.getCache().getRegion(parentRegionName);
     if (parentRegion == null) {
       String reason = LocalizedStrings.CreateRegion__0_WAS_NOT_FOUND_DURING_SUBREGION_CREATION_REQUEST.toLocalizedString(parentRegionName);
       writeRegionDestroyedEx(msg, parentRegionName, reason, servConn);

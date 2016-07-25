@@ -26,7 +26,6 @@ import com.gemstone.gemfire.cache.Region;
 import com.gemstone.gemfire.cache.client.internal.GetClientPartitionAttributesOp;
 import com.gemstone.gemfire.internal.cache.PartitionedRegion;
 import com.gemstone.gemfire.internal.cache.PartitionedRegionHelper;
-import com.gemstone.gemfire.internal.cache.tier.CachedRegionHelper;
 import com.gemstone.gemfire.internal.cache.tier.Command;
 import com.gemstone.gemfire.internal.cache.tier.MessageType;
 import com.gemstone.gemfire.internal.cache.tier.sockets.BaseCommand;
@@ -48,7 +47,7 @@ public class GetClientPartitionAttributesCommand66 extends BaseCommand {
     return singleton;
   }
 
-  private GetClientPartitionAttributesCommand66() {
+  GetClientPartitionAttributesCommand66() {
   }
 
   @SuppressWarnings("unchecked")
@@ -57,7 +56,6 @@ public class GetClientPartitionAttributesCommand66 extends BaseCommand {
     throws IOException, ClassNotFoundException, InterruptedException
   {
     String regionFullPath = null;
-    CachedRegionHelper crHelper = servConn.getCachedRegionHelper();
     regionFullPath = msg.getPart(0).getString();
     String errMessage = "";
     if (regionFullPath == null) {
@@ -70,7 +68,7 @@ public class GetClientPartitionAttributesCommand66 extends BaseCommand {
       servConn.setAsTrue(RESPONDED);
       return;
     }
-    Region region = crHelper.getRegion(regionFullPath);
+    Region region = servConn.getCache().getRegion(regionFullPath);
     if (region == null) {
       logger.warn(LocalizedMessage
         .create(LocalizedStrings.GetClientPartitionAttributes_REGION_NOT_FOUND_FOR_SPECIFIED_REGION_PATH,

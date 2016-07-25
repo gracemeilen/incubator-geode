@@ -35,9 +35,6 @@ public class GetFunctionAttribute extends BaseCommand {
     return singleton;
   }
 
-  private GetFunctionAttribute() {
-  }
-
   @Override
   public void cmdExecute(Message msg, ServerConnection servConn, long start)
       throws IOException {
@@ -60,6 +57,8 @@ public class GetFunctionAttribute extends BaseCommand {
       sendError(msg, message, servConn);
       return;
     }
+
+    this.securityService.authorizeClusterRead();
 
     byte[] functionAttributes = new byte[3];
     functionAttributes[0] = (byte)(function.hasResult() ? 1 : 0);

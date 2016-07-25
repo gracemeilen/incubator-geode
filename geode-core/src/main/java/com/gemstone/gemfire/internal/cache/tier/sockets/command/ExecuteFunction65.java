@@ -146,7 +146,7 @@ public class ExecuteFunction65 extends BaseCommand {
         functionObject = (Function) function;
       }
 
-      FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId(), null);
+      FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId());
 
       this.securityService.authorizeDataWrite();
 
