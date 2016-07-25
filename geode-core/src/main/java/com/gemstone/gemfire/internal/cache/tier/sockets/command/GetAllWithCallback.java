@@ -42,8 +42,6 @@ import com.gemstone.gemfire.internal.offheap.OffHeapHelper;
 import com.gemstone.gemfire.internal.offheap.annotations.Retained;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
-import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 
 /**
@@ -56,12 +54,8 @@ public class GetAllWithCallback extends BaseCommand {
 
   private final static GetAllWithCallback singleton = new GetAllWithCallback();
 
-
   public static Command getCommand() {
     return singleton;
-  }
-
-  protected GetAllWithCallback() {
   }
 
   @Override
@@ -71,7 +65,6 @@ public class GetAllWithCallback extends BaseCommand {
     String regionName = null;
     Object[] keys = null;
     Object callback = null;
-    CachedRegionHelper crHelper = servConn.getCachedRegionHelper();
     servConn.setAsTrue(REQUIRES_RESPONSE);
     servConn.setAsTrue(REQUIRES_CHUNKED_RESPONSE);
     int partIdx = 0;
@@ -134,7 +127,7 @@ public class GetAllWithCallback extends BaseCommand {
       servConn.setAsTrue(RESPONDED);
       return;
     }
-    LocalRegion region = (LocalRegion) crHelper.getRegion(regionName);
+    LocalRegion region = (LocalRegion) servConn.getCache().getRegion(regionName);
     if (region == null) {
       String reason = " was not found during getAll request";
       writeRegionDestroyedEx(msg, regionName, reason, servConn);

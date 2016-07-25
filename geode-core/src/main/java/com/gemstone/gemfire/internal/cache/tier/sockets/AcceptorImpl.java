@@ -198,7 +198,7 @@ public class AcceptorImpl extends Acceptor implements Runnable
   private final int socketBufferSize;
 
   /** Notifies clients of updates */
-  private final CacheClientNotifier clientNotifier;
+  private CacheClientNotifier clientNotifier;
 
   /**
    * The default value of the {@link ServerSocket}

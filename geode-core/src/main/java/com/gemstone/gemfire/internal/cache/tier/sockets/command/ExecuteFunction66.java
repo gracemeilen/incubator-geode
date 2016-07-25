@@ -61,8 +61,6 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
-import com.gemstone.gemfire.internal.security.SecurityService;
 
 /**
  * @since GemFire 6.6
@@ -87,7 +85,7 @@ public class ExecuteFunction66 extends BaseCommand {
     return singleton;
   }
 
-  protected ExecuteFunction66() {
+  ExecuteFunction66() {
   }
 
   @Override
@@ -186,7 +184,7 @@ public class ExecuteFunction66 extends BaseCommand {
         functionObject = (Function) function;
       }
 
-      FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId(), null);
+      FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId());
 
       this.securityService.authorizeDataWrite();
 
@@ -200,7 +198,7 @@ public class ExecuteFunction66 extends BaseCommand {
       m.setTransactionId(msg.getTransactionId());
       ServerToClientFunctionResultSender resultSender = new ServerToClientFunctionResultSender65(m, MessageType.EXECUTE_FUNCTION_RESULT, servConn, functionObject, executeContext);
 
-      InternalDistributedMember localVM = InternalDistributedSystem.getAnyInstance().getDistributedMember();
+      InternalDistributedMember localVM =  (InternalDistributedMember)servConn.getCache().getDistributedSystem().getDistributedMember();
       FunctionContext context = null;
 
       if (memberMappedArg != null) {
@@ -215,7 +213,7 @@ public class ExecuteFunction66 extends BaseCommand {
         if (logger.isDebugEnabled()) {
           logger.debug("Executing Function on Server: {} with context: {}", servConn, context);
         }
-        GemFireCacheImpl cache = GemFireCacheImpl.getInstance();
+        GemFireCacheImpl cache = (GemFireCacheImpl)servConn.getCache();
         HeapMemoryMonitor hmm = ((InternalResourceManager) cache.getResourceManager()).getHeapMonitor();
         if (functionObject.optimizeForWrite() && cache != null && hmm.getState()
                                                                      .isCritical() && !MemoryThresholds.isLowMemoryExceptionDisabled()) {

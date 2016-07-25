@@ -3,7 +3,7 @@ package com.gemstone.gemfire.internal.security;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
-import org.apache.geode.security.GeodePermission;
+import org.apache.geode.security.ResourcePermission;
 import org.apache.logging.log4j.Logger;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadState;
@@ -19,9 +19,6 @@ public class IntegratedSecurityService implements SecurityService {
 
   public static SecurityService getSecurityService() {
     return defaultInstance;
-  }
-
-  IntegratedSecurityService() {
   }
 
   @Override
@@ -120,7 +117,7 @@ public class IntegratedSecurityService implements SecurityService {
   }
 
   @Override
-  public void authorize(final GeodePermission context) {
+  public void authorize(final ResourcePermission context) {
     GeodeSecurityUtil.authorize(context);
   }
 

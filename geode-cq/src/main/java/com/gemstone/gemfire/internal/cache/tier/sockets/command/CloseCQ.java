@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
+import sun.plugin.liveconnect.SecureInvocation;
+
 import com.gemstone.gemfire.cache.query.CqException;
 import com.gemstone.gemfire.cache.query.internal.cq.CqService;
 import com.gemstone.gemfire.cache.query.internal.cq.InternalCqQuery;
@@ -33,7 +35,8 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.Message;
 import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 
 
 public class CloseCQ extends BaseCQCommand {
@@ -75,7 +78,7 @@ public class CloseCQ extends BaseCQCommand {
       return;
     }
 
-    GeodeSecurityUtil.authorizeDataManage();
+    this.securityService.authorizeDataManage();
 
     // Process CQ close request
     try {

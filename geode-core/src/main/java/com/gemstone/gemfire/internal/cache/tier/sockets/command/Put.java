@@ -39,8 +39,6 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
-import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.GemFireSecurityException;
 
 public class Put extends BaseCommand {
@@ -51,8 +49,6 @@ public class Put extends BaseCommand {
     return singleton;
   }
 
-  private Put() {
-  }
 
   @Override
   public void cmdExecute(Message msg, ServerConnection servConn, long start) throws IOException, InterruptedException {
@@ -132,7 +128,7 @@ public class Put extends BaseCommand {
       return;
     }
 
-    LocalRegion region = (LocalRegion) crHelper.getRegion(regionName);
+    LocalRegion region = (LocalRegion) servConn.getCache().getRegion(regionName);
     if (region == null) {
       String reason = LocalizedStrings.Put_REGION_WAS_NOT_FOUND_DURING_PUT_REQUEST.toLocalizedString();
       writeRegionDestroyedEx(msg, regionName, reason, servConn);

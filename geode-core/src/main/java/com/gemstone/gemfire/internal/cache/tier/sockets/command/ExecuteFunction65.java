@@ -65,7 +65,7 @@ public class ExecuteFunction65 extends BaseCommand {
     return singleton;
   }
 
-  private ExecuteFunction65() {
+  ExecuteFunction65() {
   }
 
   @Override
@@ -146,7 +146,7 @@ public class ExecuteFunction65 extends BaseCommand {
         functionObject = (Function) function;
       }
 
-      FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId(), null);
+      FunctionStats stats = FunctionStats.getFunctionStats(functionObject.getId());
 
       this.securityService.authorizeDataWrite();
 
@@ -160,7 +160,7 @@ public class ExecuteFunction65 extends BaseCommand {
       m.setTransactionId(msg.getTransactionId());
       ResultSender resultSender = new ServerToClientFunctionResultSender65(m, MessageType.EXECUTE_FUNCTION_RESULT, servConn, functionObject, executeContext);
 
-      InternalDistributedMember localVM = InternalDistributedSystem.getAnyInstance().getDistributedMember();
+      InternalDistributedMember localVM = (InternalDistributedMember)servConn.getCache().getDistributedSystem().getDistributedMember();
       FunctionContext context = null;
 
       if (memberMappedArg != null) {
@@ -177,7 +177,7 @@ public class ExecuteFunction65 extends BaseCommand {
         if (logger.isDebugEnabled()) {
           logger.debug("Executing Function on Server: {} with context: {}", servConn, context);
         }
-        GemFireCacheImpl cache = GemFireCacheImpl.getInstance();
+        GemFireCacheImpl cache = (GemFireCacheImpl)servConn.getCache();
         HeapMemoryMonitor hmm = ((InternalResourceManager) cache.getResourceManager()).getHeapMonitor();
         if (functionObject.optimizeForWrite() && cache != null &&
             hmm.getState().isCritical() &&
@@ -199,6 +199,7 @@ public class ExecuteFunction65 extends BaseCommand {
         stats.endFunctionExecution(startExecution, functionObject.hasResult());
       } catch (FunctionException functionException) {
         stats.endFunctionExecutionWithException(functionObject.hasResult());
+
         throw functionException;
       } catch (Exception exception) {
         stats.endFunctionExecutionWithException(functionObject.hasResult());
