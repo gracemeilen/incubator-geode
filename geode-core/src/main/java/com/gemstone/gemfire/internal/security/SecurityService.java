@@ -56,5 +56,4 @@ public interface SecurityService {
   boolean isClientSecurityRequired();
   boolean isPeerSecurityRequired();
   boolean isIntegratedSecurity();
-
 }

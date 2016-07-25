@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- *
- */
 package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 
 import java.io.IOException;
@@ -43,16 +40,11 @@ import com.gemstone.gemfire.internal.cache.tier.sockets.ServerConnection;
 import com.gemstone.gemfire.internal.i18n.LocalizedStrings;
 import com.gemstone.gemfire.internal.logging.log4j.LocalizedMessage;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
-import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
-import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.GemFireSecurityException;
 
 public class Destroy extends BaseCommand {
 
   private final static Destroy singleton = new Destroy();
-
-  private Destroy() {
-  }
 
   public static Command getCommand() {
     return singleton;
@@ -68,7 +60,6 @@ public class Destroy extends BaseCommand {
     Object callbackArg = null, key = null;
     Part eventPart = null;
     StringBuffer errMessage = new StringBuffer();
-    CachedRegionHelper crHelper = servConn.getCachedRegionHelper();
     CacheServerStats stats = servConn.getCacheServerStats();
     servConn.setAsTrue(REQUIRES_RESPONSE);
 
@@ -122,7 +113,7 @@ public class Destroy extends BaseCommand {
       return;
     }
 
-    LocalRegion region = (LocalRegion) crHelper.getRegion(regionName);
+    LocalRegion region = (LocalRegion) servConn.getCache().getRegion(regionName);
     if (region == null) {
       String reason = LocalizedStrings.Destroy__0_WAS_NOT_FOUND_DURING_DESTROY_REQUEST.toLocalizedString(regionName);
       writeRegionDestroyedEx(msg, regionName, reason, servConn);

@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * 
- */
 package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 
 import java.io.IOException;
+import java.security.Security;
 
 import com.gemstone.gemfire.cache.Region;
 import com.gemstone.gemfire.cache.client.internal.GetOp;
@@ -48,8 +46,6 @@ import com.gemstone.gemfire.internal.offheap.annotations.Retained;
 import com.gemstone.gemfire.internal.offheap.annotations.Unretained;
 import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.AuthorizeRequestPP;
-import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
-import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 
 public class Get70 extends BaseCommand {
@@ -60,9 +56,6 @@ public class Get70 extends BaseCommand {
     return singleton;
   }
 
-  protected Get70() {
-  }
-  
   @Override
   public void cmdExecute(Message msg, ServerConnection servConn, long startparam)
       throws IOException {
@@ -145,7 +138,7 @@ public class Get70 extends BaseCommand {
       return;
     }
 
-    Region region = crHelper.getRegion(regionName);
+    Region region = servConn.getCache().getRegion(regionName);
     if (region == null) {
       String reason = LocalizedStrings.Request__0_WAS_NOT_FOUND_DURING_GET_REQUEST.toLocalizedString(regionName);
       writeRegionDestroyedEx(msg, regionName, reason, servConn);
