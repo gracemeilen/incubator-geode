@@ -21,9 +21,6 @@ public class IntegratedSecurityService implements SecurityService {
     return defaultInstance;
   }
 
-  IntegratedSecurityService() {
-  }
-
   @Override
   public ThreadState bindSubject(final Subject subject) {
     return GeodeSecurityUtil.bindSubject(subject);

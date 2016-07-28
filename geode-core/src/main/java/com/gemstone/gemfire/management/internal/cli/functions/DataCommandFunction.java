@@ -61,7 +61,8 @@ import com.gemstone.gemfire.internal.InternalEntity;
 import com.gemstone.gemfire.internal.NanoTimer;
 import com.gemstone.gemfire.internal.cache.PartitionedRegion;
 import com.gemstone.gemfire.internal.logging.LogService;
-import com.gemstone.gemfire.internal.security.GeodeSecurityUtil;
+import com.gemstone.gemfire.internal.security.IntegratedSecurityService;
+import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.management.cli.Result;
 import com.gemstone.gemfire.management.internal.cli.CliUtil;
 import com.gemstone.gemfire.management.internal.cli.commands.DataCommands;
@@ -97,6 +98,8 @@ public class DataCommandFunction extends FunctionAdapter implements  InternalEnt
   protected static final String SELECT_STEP_END = "SELECT_END";
   protected static final String SELECT_STEP_EXEC = "SELECT_EXEC";
   private static final int NESTED_JSON_LENGTH = 20;
+  
+  protected SecurityService securityService = IntegratedSecurityService.getSecurityService();
 
   @Override
   public String getId() {
@@ -867,6 +870,8 @@ public class DataCommandFunction extends FunctionAdapter implements  InternalEnt
     
     private static final long serialVersionUID = 1L;
 
+    private SecurityService securityService = IntegratedSecurityService.getSecurityService();
+
     public SelectExecStep(Object[] arguments) {
       super(SELECT_STEP_EXEC, arguments);
     }
@@ -920,7 +925,7 @@ public class DataCommandFunction extends FunctionAdapter implements  InternalEnt
 
         // authorize data read on these regions
         for(String region:regions){
-          GeodeSecurityUtil.authorizeRegionRead(region);
+          this.securityService.authorizeRegionRead(region);
         }
 
         regionsInQuery = Collections.unmodifiableSet(regions);
@@ -935,11 +940,11 @@ public class DataCommandFunction extends FunctionAdapter implements  InternalEnt
             dataResult.setInputQuery(query);
 
             // post process, iterate through the result for post processing
-            if(GeodeSecurityUtil.needPostProcess()) {
+            if(this.securityService.needPostProcess()) {
               List<SelectResultRow> rows = dataResult.getSelectResult();
               for (Iterator<SelectResultRow> itr = rows.iterator(); itr.hasNext(); ) {
                 SelectResultRow row = itr.next();
-                Object newValue = GeodeSecurityUtil.postProcess(null, null, row.getValue());
+                Object newValue = this.securityService.postProcess(null, null, row.getValue());
                 // user is not supposed to see this row
                 if (newValue == null) {
                   itr.remove();
