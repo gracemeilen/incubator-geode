@@ -19,23 +19,22 @@ package com.gemstone.gemfire.internal.cache.tier.sockets.command;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
 
-import org.junit.Rule;
-import org.junit.contrib.java.lang.system.RestoreSystemProperties;
-import org.powermock.api.mockito.PowerMockito;
-
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.RestoreSystemProperties;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import com.gemstone.gemfire.CancelCriterion;
-import com.gemstone.gemfire.cache.control.ResourceManager;
+import com.gemstone.gemfire.cache.execute.Function;
 import com.gemstone.gemfire.cache.execute.FunctionService;
 import com.gemstone.gemfire.cache.operations.ExecuteFunctionOperationContext;
 import com.gemstone.gemfire.distributed.internal.DistributionConfig;
@@ -44,6 +43,7 @@ import com.gemstone.gemfire.internal.cache.GemFireCacheImpl;
 import com.gemstone.gemfire.internal.cache.LocalRegion;
 import com.gemstone.gemfire.internal.cache.control.HeapMemoryMonitor;
 import com.gemstone.gemfire.internal.cache.control.InternalResourceManager;
+import com.gemstone.gemfire.internal.cache.execute.AbstractExecution;
 import com.gemstone.gemfire.internal.cache.tier.CachedRegionHelper;
 import com.gemstone.gemfire.internal.cache.tier.sockets.AcceptorImpl;
 import com.gemstone.gemfire.internal.cache.tier.sockets.ChunkedMessage;
@@ -55,18 +55,17 @@ import com.gemstone.gemfire.internal.security.AuthorizeRequest;
 import com.gemstone.gemfire.internal.security.SecurityService;
 import com.gemstone.gemfire.security.NotAuthorizedException;
 import com.gemstone.gemfire.test.junit.categories.UnitTest;
-import com.gemstone.gemfire.cache.execute.Function;
 
 @Category(UnitTest.class)
 @RunWith(PowerMockRunner.class)
 @PowerMockIgnore("*.Test")
 @PrepareForTest({ FunctionService.class })
-public class ExecuteFunctionTest {
+public class ExecuteFunction65Test {
   private static final String FUNCTION = "function";
   private static final String FUNCTION_ID = "function_id";
   private static final boolean OPTIMIZE_FOR_WRITE = false;
   private static final Object CALLBACK_ARG = "arg";
-  private static final byte[] RESULT = new byte[] {Integer.valueOf(1).byteValue()};
+  private static final byte[] RESULT = new byte[] {Integer.valueOf(0).byteValue()};
 
   @Mock
   private SecurityService securityService;
@@ -85,9 +84,9 @@ public class ExecuteFunctionTest {
   @Mock
   private ChunkedMessage chunkedResponseMessage;
   @Mock
-  private Part hasResultPart;
-  @Mock
   private Part functionPart;
+  @Mock
+  private Part functionStatePart;
   @Mock
   private Part argsPart;
   @Mock
@@ -97,16 +96,14 @@ public class ExecuteFunctionTest {
   @Mock
   private Function functionObject;
   @Mock
-  private AcceptorImpl acceptor;
-  @Mock
-  private HandShake handShake;
-  @Mock
   private InternalResourceManager internalResourceManager;
+  @Mock
+  private AcceptorImpl acceptor;
   @Mock
   private ExecuteFunctionOperationContext executeFunctionOperationContext;
 
   @InjectMocks
-  private ExecuteFunction executeFunction;
+  private ExecuteFunction65 executeFunction65;
 
   @Rule
   public RestoreSystemProperties restoreSystemProperties = new RestoreSystemProperties();
@@ -115,7 +112,7 @@ public class ExecuteFunctionTest {
   public void setUp() throws Exception {
     System.setProperty(DistributionConfig.GEMFIRE_PREFIX + "statsDisabled", "true");
 
-    this.executeFunction = new ExecuteFunction();
+    this.executeFunction65 = new ExecuteFunction65();
     MockitoAnnotations.initMocks(this);
 
     when(this.authzRequest.executeFunctionAuthorize(eq(FUNCTION_ID), eq(null), eq(null), eq(null), eq(OPTIMIZE_FOR_WRITE))).thenReturn(this.executeFunctionOperationContext);
@@ -130,12 +127,12 @@ public class ExecuteFunctionTest {
 
     when(this.functionPart.getStringOrObject()).thenReturn(FUNCTION);
 
-    when(this.hasResultPart.getSerializedForm()).thenReturn(RESULT);
+    when(this.functionStatePart.getSerializedForm()).thenReturn(RESULT);
 
     when(this.internalResourceManager.getHeapMonitor()).thenReturn(mock(HeapMemoryMonitor.class));
 
     when(this.message.getNumberOfParts()).thenReturn(4);
-    when(this.message.getPart(eq(0))).thenReturn(this.hasResultPart);
+    when(this.message.getPart(eq(0))).thenReturn(this.functionStatePart);
     when(this.message.getPart(eq(1))).thenReturn(this.functionPart);
     when(this.message.getPart(eq(2))).thenReturn(this.argsPart);
     when(this.message.getPart(eq(3))).thenReturn(this.partPart);
@@ -146,7 +143,7 @@ public class ExecuteFunctionTest {
     when(this.serverConnection.getFunctionResponseMessage()).thenReturn(this.functionResponseMessage);
     when(this.serverConnection.getChunkedResponseMessage()).thenReturn(this.chunkedResponseMessage);
     when(this.serverConnection.getAcceptor()).thenReturn(this.acceptor);
-    when(this.serverConnection.getHandshake()).thenReturn(this.handShake);
+    when(this.serverConnection.getHandshake()).thenReturn(mock(HandShake.class));
 
     PowerMockito.mockStatic(FunctionService.class);
     PowerMockito.when(FunctionService.getFunction(eq(FUNCTION))).thenReturn(functionObject);
@@ -156,9 +153,9 @@ public class ExecuteFunctionTest {
   public void nonSecureShouldSucceed() throws Exception {
     when(this.securityService.isClientSecurityRequired()).thenReturn(false);
 
-    this.executeFunction.cmdExecute(this.message, this.serverConnection, 0);
+    this.executeFunction65.cmdExecute(this.message, this.serverConnection, 0);
 
-//    verify(this.functionResponseMessage).sendChunk(this.serverConnection); // TODO: why do none of the reply message types get sent?
+    //    verify(this.functionResponseMessage).sendChunk(this.serverConnection); // TODO: why do none of the reply message types get sent?
   }
 
   @Test
@@ -166,7 +163,7 @@ public class ExecuteFunctionTest {
     when(this.securityService.isClientSecurityRequired()).thenReturn(true);
     when(this.securityService.isIntegratedSecurity()).thenReturn(true);
 
-    this.executeFunction.cmdExecute(this.message, this.serverConnection, 0);
+    this.executeFunction65.cmdExecute(this.message, this.serverConnection, 0);
 
     verify(this.securityService).authorizeDataWrite();
     //verify(this.replyMessage).send(this.serverConnection); TODO: why do none of the reply message types get sent?
@@ -178,10 +175,10 @@ public class ExecuteFunctionTest {
     when(this.securityService.isIntegratedSecurity()).thenReturn(true);
     doThrow(new NotAuthorizedException("")).when(this.securityService).authorizeDataWrite();
 
-    this.executeFunction.cmdExecute(this.message, this.serverConnection, 0);
+    this.executeFunction65.cmdExecute(this.message, this.serverConnection, 0);
 
     verify(this.securityService).authorizeDataWrite();
-    verify(this.chunkedResponseMessage).sendChunk(this.serverConnection);
+//    verify(this.chunkedResponseMessage).sendChunk(this.serverConnection);
   }
 
   @Test
@@ -189,7 +186,7 @@ public class ExecuteFunctionTest {
     when(this.securityService.isClientSecurityRequired()).thenReturn(true);
     when(this.securityService.isIntegratedSecurity()).thenReturn(false);
 
-    this.executeFunction.cmdExecute(this.message, this.serverConnection, 0);
+    this.executeFunction65.cmdExecute(this.message, this.serverConnection, 0);
 
     verify(this.authzRequest).executeFunctionAuthorize(eq(FUNCTION_ID), any(), any(), any(), eq(false));
     //verify(this.replyMessage).send(this.serverConnection); TODO: why do none of the reply message types get sent?
@@ -201,9 +198,10 @@ public class ExecuteFunctionTest {
     when(this.securityService.isIntegratedSecurity()).thenReturn(false);
     doThrow(new NotAuthorizedException("")).when(this.authzRequest).executeFunctionAuthorize(eq(FUNCTION_ID), any(), any(), any(), eq(false));
 
-    this.executeFunction.cmdExecute(this.message, this.serverConnection, 0);
+    this.executeFunction65.cmdExecute(this.message, this.serverConnection, 0);
 
-    verify(this.chunkedResponseMessage).sendChunk(this.serverConnection);
+    verify(this.securityService).authorizeDataWrite();
+    //verify(this.chunkedResponseMessage).sendChunk(this.serverConnection);
   }
 
 }

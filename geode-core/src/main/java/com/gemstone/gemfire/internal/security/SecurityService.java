@@ -21,7 +21,7 @@ import java.util.concurrent.Callable;
 
 import com.gemstone.gemfire.management.internal.security.ResourceOperation;
 
-import org.apache.geode.security.GeodePermission;
+import org.apache.geode.security.ResourcePermission;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadState;
 
@@ -46,7 +46,7 @@ public interface SecurityService {
   void authorizeRegionRead(String regionName);
   void authorizeRegionRead(String regionName, String key);
   void authorize(String resource, String operation);
-  void authorize(GeodePermission context);
+  void authorize(ResourcePermission context);
   void initSecurity(Properties securityProps);
   void close();
   boolean needPostProcess();
