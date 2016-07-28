@@ -4,6 +4,7 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 
 import org.apache.geode.security.ResourcePermission;
+import org.apache.geode.security.SecurityManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadState;
@@ -141,15 +142,10 @@ public class IntegratedSecurityService implements SecurityService {
     return GeodeSecurityUtil.postProcess(regionPath, key, result);
   }
 
-//  @Override
-//  public <T> T getObjectOfType(final String factoryName, final Class<T> clazz) {
-//    return GeodeSecurityUtil.getObjectOfType(factoryName, clazz);
-//  }
-//
-//  @Override
-//  public <T> T getObjectOfTypeFromFactoryMethod(String factoryMethodName, Class<T> expectedClazz) {
-//    return GeodeSecurityUtil.getObjectOfTypeFromFactoryMethod(factoryMethodName, expectedClazz);
-//  }
+  @Override
+  public SecurityManager getSecurityManager(){
+    return GeodeSecurityUtil.getSecurityManager();
+  }
 
   @Override
   public boolean isClientSecurityRequired() {
